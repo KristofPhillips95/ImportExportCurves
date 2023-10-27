@@ -1,0 +1,26 @@
+Generator_ID;efficiency;VOM;Unavailability;fuel_type;emissions(kg/GJ);emissions(kg/MWh)
+CCGT;0.55;1.6;0.22;Natural gas;57;205.2
+CCGT_bio;0.55;1.6;;Biogas;78.89;284.004
+CCGT_H2;0.55;1.6;0.22;H2;0;0
+Coal;0.4;3.3;0.24;Coal;94;338.4
+Coal_bio;0.4;3.3;;Biomass;48.33;173.988
+Lignite;0.4;3.3;0.24;Lignite;101;363.6
+Lignite_bio;0.4;3.3;;Biomass;48.33;173.988
+Nuclear;0.33;9;0.2;Nuclear;0;0
+OCGT;0.4;1.6;0.22;Natural gas;57;205.2
+OCGT_bio;0.4;1.6;;Biogas;78.89;284.004
+OCGT_H2;0.4;1.6;0.22;H2;0;0
+Oil_heavy;0.35;3.3;0.25;HFO;78;280.8
+Oil_heavy_bio;0.35;3.3;0.25;Biogasoline;57.22;205.992
+Oil_light;0.35;1.1;0.23;Gasoline;78;280.8
+Oil_light_bio;0.35;1.1;0.23;Biogasoline;57.22;205.992
+Battery;0.9;3.1;0;None;;0
+PS_C;0.9;0;0;None;;0
+PS_O;0.9;0;0;None;;0
+PV;;0;0;None;;0
+RES;0.9;0;0;None;;0
+ROR;0.9;0;0;None;;0
+w_off;;0;0;None;;0
+w_on;;0;0;None;;0
+Other RES;1;0;0;None;0;0
+Other Non RES;1;0;0;None;0;0
