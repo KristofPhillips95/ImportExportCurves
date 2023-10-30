@@ -30,7 +30,7 @@ function define_sets!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes
     define_connection_sets!(m,scenario,year,CY)
     if length(investment_countries) != 0
         m.ext[:sets][:investment_technologies] = Dict()
-        define_investment_sets!(m,scenario,year,CY,investment_countries)
+        define_investment_sets!(m,investment_countries)
     end
 end
 
@@ -91,7 +91,7 @@ function define_connection_sets!(m::Model,scenario::String,year::Int,CY::Int)
     end
 end
 
-function define_investment_sets!(m,scenario,year,CY,investment_countries)
+function define_investment_sets!(m,investment_countries)
     reading = CSV.read("InputData\\Techno-economic_parameters\\Investment_costs.csv",DataFrame)
 
     for country in investment_countries
@@ -100,7 +100,7 @@ function define_investment_sets!(m,scenario,year,CY,investment_countries)
 end
 
 ##Parameters
-function process_parameters!(m::Model,scenario::String,year::Int,CY::Int)
+function process_parameters!(m::Model,scenario::String,year::Int,CY::Int,investment_countries = [])
     countries = m.ext[:sets][:countries]
     technologies = m.ext[:sets][:technologies]
     connections = m.ext[:sets][:connections]
@@ -121,6 +121,12 @@ function process_parameters!(m::Model,scenario::String,year::Int,CY::Int)
 
     m.ext[:parameters][:technologies][:total_gen] = Dict()
 
+    #Investment parameters
+    m.ext[:parameters][:investment_technologies] = Dict()
+
+    m.ext[:parameters][:investment_technologies][:cost] = Dict()
+    m.ext[:parameters][:investment_technologies][:lifetime] = Dict()
+
 
     process_power_generation_parameters!(m,scenario,year,CY,countries,technologies)
     process_line_capacities!(m,scenario,year,CY,countries)
@@ -128,6 +134,9 @@ function process_parameters!(m::Model,scenario::String,year::Int,CY::Int)
     process_battery_energy_capacities!(m,countries)
     process_flat_generation(m,countries,scenario,CY)
     process_co2_price(m,year)
+    if length(investment_countries) != 0
+        process_investment_parameters(m,investment_countries)
+    end
 end
 
 function process_co2_price(m,year::Int64)
@@ -263,6 +272,16 @@ function process_flat_generation(m,countries,scenario,CY)
             generation = reading_country[reading_country[!,"Generator_ID"] .== tech,:].Value
             m.ext[:parameters][:technologies][:total_gen][country][tech] = sum(generation)
         end
+    end
+end
+
+function process_investment_parameters(m,investment_countries)
+
+    reading = CSV.read("InputData\\Techno-economic_parameters\\Investment_costs.csv",DataFrame)
+
+    for country in investment_countries
+        m.ext[:parameters][:investment_technologies][:cost][country] = reading.cost
+        m.ext[:parameters][:investment_technologies][:lifetime][country] = reading.lifetime
     end
 end
 
