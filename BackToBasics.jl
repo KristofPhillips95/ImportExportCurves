@@ -15,12 +15,12 @@ define_sets!(m,scenario,year,CY)
 
 all_countries = [key for key in keys(m.ext[:sets][:technologies])]
 
-define_sets!(m,scenario,year,CY,all_countries[2:end] )
+define_sets!(m,scenario,year,CY,filter(e->e != "BE00",all_countries),["BE00"])
 
 process_parameters!(m,scenario,year,CY)
 process_time_series!(m,scenario,year,CY_ts)
 
-m.ext[:sets]
+m.ext[:sets][:technologies]["BE00"]
 
 build_NTC_model!(m,endtime,VOLL,0.1)
 
@@ -29,3 +29,7 @@ keys(m.ext[:sets][:technologies])
 m.ext[:sets][:technologies]["BE00"]
 m.ext[:parameters][:technologies]
 m.ext[:timeseries][:demand]
+
+CSV.read("InputData\\Techno-economic_parameters\\Investment_costs.csv",DataFrame)
+
+len
