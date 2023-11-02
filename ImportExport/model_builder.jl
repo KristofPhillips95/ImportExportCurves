@@ -744,6 +744,7 @@ function build_base_investment_model!(m::Model,endtime,VOLL,disc_rate = 0.07)
     soc[c,tech,time] ==  soc[c,tech,time-1] + hydro_flow[c][tech][time-1] * (1/efficiencies[c][tech]) + charge[c,tech,time] * efficiencies[c][tech]
     -  production[c,tech,time-1] * (1/efficiencies[c][tech])
     )
+    return m
 end
 
 function build_NTC_investment_model!(m:: Model,endtime,VOLL,transport_cost)
