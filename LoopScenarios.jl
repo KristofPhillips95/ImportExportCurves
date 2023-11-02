@@ -1,9 +1,9 @@
 include("ImportExport/model_builder.jl")
 using Gurobi
 
-scenario = "National Trends"
+# scenario = "National Trends"
 endtime = 240
-year = 2025
+# year = 2025
 CY = 1984
 CY_ts = 2012
 VOLL = 10000
