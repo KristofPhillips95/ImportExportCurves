@@ -52,7 +52,7 @@ for tech  in ["PV", "w_on", "w_off", "CCGT", "OCGT"]
     plot!(x,productions[tech], label = tech)
 end
 
-scatter!(x,demand + curtailment - load_shedding - y_stacked,label = "Sum of it all")
+scatter!(x,demand + curtailment - load_shedding - y_stacked,label = "Sum of it all minus demand")
 # Customize the plot
 plot!(xlabel = "Time", ylabel = "Production", legend = :topright)
 
