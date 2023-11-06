@@ -38,7 +38,8 @@ function define_sets!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes
 end
 
 function define_technology_type_sets!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes::Array=[])
-    reading = CSV.read("InputData\\gen_cap.csv",DataFrame)
+    path = joinpath("InputData","gen_cap.csv")
+    reading = CSV.read(path,DataFrame)
     reading = reading[reading[!,"Scenario"] .== scenario,:]
     reading = reading[reading[!,"Year"] .== year,:]
     reading = reading[reading[!,"Climate Year"] .== CY,:]
@@ -75,7 +76,8 @@ function define_technology_type_sets!(m::Model,scenario::String,year::Int,CY::In
 end
 
 function define_connection_sets!(m::Model,scenario::String,year::Int,CY::Int)
-    reading_lines = CSV.read("InputData\\lines.csv",DataFrame)
+    path = joinpath("InputData","lines.csv")
+    reading_lines = CSV.read(path,DataFrame)
     reading_lines = reading_lines[reading_lines[!,"Scenario"] .== scenario,:]
     reading_lines = reading_lines[reading_lines[!,"Climate Year"] .== CY,:]
     reading_lines = reading_lines[reading_lines[!,"Year"] .== year,:]
@@ -95,7 +97,8 @@ function define_connection_sets!(m::Model,scenario::String,year::Int,CY::Int)
 end
 
 function define_investment_sets!(m,investment_countries)
-    reading = CSV.read("InputData\\Techno-economic_parameters\\Investment_costs.csv",DataFrame)
+    path = joinpath("InputData","Techno-economic_parameters","Investment_costs.csv")
+    reading = CSV.read(path,DataFrame)
 
     for country in investment_countries
         m.ext[:sets][:investment_technologies][country] = reading.technology
@@ -136,7 +139,7 @@ function process_parameters!(m::Model,scenario::String,year::Int,CY::Int,investm
     process_line_capacities!(m,scenario,year,CY,countries)
     process_hydro_energy_capacities!(m,countries)
     process_battery_energy_capacities!(m,countries)
-    process_flat_generation(m,countries,scenario,CY)
+    process_flat_generation(m,countries,scenario,CY,year)
     process_co2_price(m,year)
     if length(investment_countries) != 0
         process_investment_parameters(m,investment_countries)
@@ -144,18 +147,23 @@ function process_parameters!(m::Model,scenario::String,year::Int,CY::Int,investm
 end
 
 function process_co2_price(m,year::Int64)
-    reading_co2 = CSV.read("InputData\\Techno-economic_parameters\\co2_price.csv",DataFrame)
+    path = joinpath("InputData","Techno-economic_parameters","co2_price.csv")
+    reading_co2 = CSV.read(path,DataFrame)
     m.ext[:parameters][:CO2_price] = reading_co2[1,string(year)]/1000
 
 end
 function process_power_generation_parameters!(m::Model,scenario::String,year::Int,CY::Int,countries,technologies)
-    reading = CSV.read("InputData\\gen_cap.csv",DataFrame)
+    path = joinpath("InputData","gen_cap.csv")
+    reading = CSV.read(path,DataFrame)
     reading = reading[reading[!,"Scenario"] .== scenario,:]
     reading = reading[reading[!,"Year"] .== year,:]
     reading = reading[reading[!,"Climate Year"] .== CY,:]
 
-    reading_technical = CSV.read("InputData\\Techno-economic_parameters\\Generator_efficiencies.csv",DataFrame)
-    fuel_prices = CSV.read("InputData\\Techno-economic_parameters\\fuel_costs.csv",DataFrame)
+    path_technical =  joinpath("InputData","Techno-economic_parameters","Generator_efficiencies.csv")
+    reading_technical = CSV.read(path_technical,DataFrame)
+    
+    path_fp =  joinpath("InputData","Techno-economic_parameters","fuel_costs.csv")
+    fuel_prices = CSV.read(path_fp,DataFrame)
 
     for country in countries
         m.ext[:parameters][:technologies][:capacities][country] = Dict()
@@ -196,7 +204,8 @@ function process_power_generation_parameters!(m::Model,scenario::String,year::In
 end
 
 function process_line_capacities!(m::Model,scenario::String,year::Int,CY::Int,countries)
-    reading_lines = CSV.read("InputData\\lines.csv",DataFrame)
+    path = joinpath("InputData","lines.csv")
+    reading_lines = CSV.read(path,DataFrame)
     reading_lines = reading_lines[reading_lines[!,"Scenario"] .== scenario,:]
     reading_lines = reading_lines[reading_lines[!,"Climate Year"] .== CY,:]
     reading_lines = reading_lines[reading_lines[!,"Year"] .== year,:]
@@ -264,8 +273,9 @@ function process_battery_energy_capacities!(m,countries)
     end
 end
 
-function process_flat_generation(m,countries,scenario,CY)
-    reading = CSV.read("InputData\\gen_prod.csv",DataFrame)
+function process_flat_generation(m,countries,scenario,CY,year)
+    path = joinpath("InputData","gen_prod.csv")
+    reading = CSV.read(path,DataFrame)
     reading = reading[reading[!,"Scenario"] .== scenario,:]
     reading = reading[reading[!,"Year"] .== year,:]
     reading = reading[reading[!,"Climate Year"] .== CY,:]
@@ -280,8 +290,8 @@ function process_flat_generation(m,countries,scenario,CY)
 end
 
 function process_investment_parameters(m,investment_countries)
-
-    reading = CSV.read("InputData\\Techno-economic_parameters\\Investment_costs.csv",DataFrame)
+    path = joinpath("InputData","Techno-economic_parameters","Investment_costs.csv")
+    reading = CSV.read(path,DataFrame)
 
     for country in investment_countries
         m.ext[:parameters][:investment_technologies][:cost][country] = Dict()
