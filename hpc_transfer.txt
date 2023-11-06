@@ -2,3 +2,5 @@
 #All 
 
 rsync --progress --delete OneDrive\ -\ KU\ Leuven/ImportExportCurves/ vsc34888@hpc:/data/leuven/348/vsc34888/ImportExportCurves -anv
+
+rsync --progress --delete vsc34888@hpc:/data/leuven/348/vsc34888/ImportExportCurves/ OneDrive\ -\ KU\ Leuven/ImportExportCurves -anv

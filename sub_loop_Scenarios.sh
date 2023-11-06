@@ -7,7 +7,7 @@
 #SBATCH --mail-user="kristof.phillips@kuleuven.be"
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --time="12:00:00"
-#SBATCH --ntasks-per-node="12"
+#SBATCH --ntasks-per-node="36"
 #SBATCH --account="lp_elect_gen_modeling"
 #SBATCH --partition="batch"
       

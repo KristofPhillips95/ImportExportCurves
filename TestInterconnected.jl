@@ -20,14 +20,20 @@ for isolated in [true,false]
         m = Model(optimizer_with_attributes(Gurobi.Optimizer))
         define_sets!(m,scenario,year,CY,[],[country])
 
-        process_parameters!(m,scenario,year,CY,[country])
-        process_time_series!(m,scenario,year,CY_ts)
-        remove_capacity_country!(m,country)
-
         if isolated
+            #We start by redefining the sets here, to remove unnecessary countries. 
+            all_countries = [key for key in keys(m.ext[:sets][:technologies])]
+            define_sets!(m,scenario,year,CY,filter((e->e != "BE00"),all_countries),["BE00"])
+            process_parameters!(m,scenario,year,CY,[country])
+            process_time_series!(m,scenario,year,CY_ts)
+            remove_capacity_country!(m,country)
             build_isolated_investment_model!(m,endtime,VOLL)
         else 
+            process_parameters!(m,scenario,year,CY,[country])
+            process_time_series!(m,scenario,year,CY_ts)
+            remove_capacity_country!(m,country)
             build_NTC_investment_model!(m,endtime,VOLL,0.1)
+
         end
         optimize!(m)
 
