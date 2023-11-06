@@ -77,7 +77,7 @@ for sc_ty_tuple in sc_ty_tuples
         )
         global results = vcat(results,row)
 
-        CSV.write("Results\\model_results.csv",results)
+        CSV.write(joinpath("Results","model_results.csv"),results)
     end
 end
 
