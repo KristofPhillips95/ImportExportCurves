@@ -48,8 +48,11 @@ for sc_ty_tuple in sc_ty_tuples
         demand = sum(m.ext[:timeseries][:demand][country][1:endtime])
         if isolated 
             imported = 0
+            exported = 0
         else
             imported = sum([sum(JuMP.value.(m.ext[:variables][:import][country,neighbor,t]
+                for neighbor in m.ext[:sets][:connections][country])) for t in 1:endtime])
+            exported = sum([sum(JuMP.value.(m.ext[:variables][:export][country,neighbor,t]
                 for neighbor in m.ext[:sets][:connections][country])) for t in 1:endtime])
         end
 
@@ -72,6 +75,7 @@ for sc_ty_tuple in sc_ty_tuples
             "w_on"=> JuMP.value.(m.ext[:variables][:invested_cap][country,"w_on"]),
             "w_off"=> JuMP.value.(m.ext[:variables][:invested_cap][country,"w_off"]),
             "imported" => imported,
+            "exported" => exported,
             "demand" => demand,
             "peak_demand" => peak_dem
         )
