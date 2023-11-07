@@ -2,3 +2,11 @@
 InputData/Demand_time_series/
 
 .vscode/
+
+Presentations/DiscussionJelle_23_11_07.pptx
+
+Results/model_results_pivots.xlsx
+
+Results/Figures/SanityCheck/
+
+BackToBasics.jl
