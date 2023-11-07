@@ -37,6 +37,31 @@ function define_sets!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes
     end
 end
 
+function define_sets_simplified!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes::Array=[],investment_countries = [])
+
+    #Initialize empty sets
+    m.ext[:sets] = Dict()
+
+    m.ext[:sets][:investment_countries] = investment_countries
+
+    m.ext[:sets][:technologies] = Dict()
+    m.ext[:sets][:dispatchable_technologies] = Dict()
+    
+    m.ext[:sets][:intermittent_technologies] = Dict()
+    m.ext[:sets][:connections] = Dict()        
+
+    #Technology type sets
+    define_technology_type_sets_simplified!(m,scenario,year,CY,excluded_nodes)
+
+    #Connection sets
+    define_connection_sets!(m,scenario,year,CY)
+    if length(investment_countries) != 0
+        m.ext[:sets][:investment_technologies] = Dict()
+        m.ext[:sets][:non_investment_technologies] = Dict()
+        define_investment_sets!(m,investment_countries)
+    end
+end
+
 function define_technology_type_sets!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes::Array=[])
     path = joinpath("InputData","gen_cap.csv")
     reading = CSV.read(path,DataFrame)
@@ -71,6 +96,31 @@ function define_technology_type_sets!(m::Model,scenario::String,year::Int,CY::In
         m.ext[:sets][:pure_storage_technologies][country] = [tech for tech in pure_storage_technologies]
         m.ext[:sets][:hydro_flow_technologies_without_pumping][country] = [tech for tech in hydro_flow_technologies_without_pumping]
         m.ext[:sets][:hydro_flow_technologies_with_pumping][country] = [tech for tech in hydro_flow_technologies_with_pumping]
+
+    end
+end
+
+function define_technology_type_sets_simplified!(m::Model,scenario::String,year::Int,CY::Int,excluded_nodes::Array=[])
+    path = joinpath("InputData","gen_cap.csv")
+    reading = CSV.read(path,DataFrame)
+    reading = reading[reading[!,"Scenario"] .== scenario,:]
+    reading = reading[reading[!,"Year"] .== year,:]
+    reading = reading[reading[!,"Climate Year"] .== CY,:]
+
+    m.ext[:sets][:countries] = [country for country in setdiff(Set(reading[!,"Node"]),Set(excluded_nodes))]
+
+    for country in m.ext[:sets][:countries]
+        technologies = setdiff(Set(reading[reading[!,"Node"] .== country,:Generator_ID]),Set(["DSR"]))
+        dispatchable_technologies = Set(reading[(reading[!,"Node"] .== country) .& (reading[!,"Super_type"] .== "Dispatchable") ,:Generator_ID])
+        intermittent_technologies = Set(reading[(reading[!,"Node"] .== country) .& (reading[!,"Super_type"] .== "Intermittent") ,:Generator_ID])
+
+
+
+        m.ext[:sets][:dispatchable_technologies][country] = [tech for tech in dispatchable_technologies]
+
+        m.ext[:sets][:intermittent_technologies][country] = [tech for tech in intermittent_technologies]
+        technologies = union(m.ext[:sets][:intermittent_technologies][country],m.ext[:sets][:dispatchable_technologies][country])
+        m.ext[:sets][:technologies][country] = [tech for tech in technologies]
 
     end
 end
@@ -146,6 +196,42 @@ function process_parameters!(m::Model,scenario::String,year::Int,CY::Int,investm
     end
 end
 
+function process_parameters_simplified!(m::Model,scenario::String,year::Int,CY::Int,investment_countries = [])
+    countries = m.ext[:sets][:countries]
+    technologies = m.ext[:sets][:technologies]
+    connections = m.ext[:sets][:connections]
+
+    m.ext[:parameters] = Dict()
+
+    m.ext[:parameters][:technologies] = Dict()
+    m.ext[:parameters][:connections] = Dict()
+
+    #Power generation capacities
+    m.ext[:parameters][:technologies][:capacities] = Dict()
+    m.ext[:parameters][:technologies][:energy_capacities] = Dict()
+    m.ext[:parameters][:technologies][:efficiencies] = Dict()
+    m.ext[:parameters][:technologies][:VOM] = Dict()
+    m.ext[:parameters][:technologies][:availabilities] = Dict()
+    m.ext[:parameters][:technologies][:fuel_cost] = Dict()
+    m.ext[:parameters][:technologies][:emissions] = Dict()
+
+    m.ext[:parameters][:technologies][:total_gen] = Dict()
+
+    #Investment parameters
+    m.ext[:parameters][:investment_technologies] = Dict()
+
+    m.ext[:parameters][:investment_technologies][:cost] = Dict()
+    m.ext[:parameters][:investment_technologies][:lifetime] = Dict()
+
+
+    process_power_generation_parameters!(m,scenario,year,CY,countries,technologies)
+    process_line_capacities!(m,scenario,year,CY,countries)
+    process_co2_price(m,year)
+    if length(investment_countries) != 0
+        process_investment_parameters(m,investment_countries)
+    end
+end
+
 function process_co2_price(m,year::Int64)
     path = joinpath("InputData","Techno-economic_parameters","co2_price.csv")
     reading_co2 = CSV.read(path,DataFrame)
@@ -175,7 +261,7 @@ function process_power_generation_parameters!(m::Model,scenario::String,year::In
 
         reading_country = reading[reading[!,"Node"] .== country,:]
         for technology in technologies[country]
-            #@show(technology)
+            # @show(technology)
             capacity = reading_country[reading_country[!,"Generator_ID"] .== technology,:].Value
             #@assert(length(capacity) == 1)
             m.ext[:parameters][:technologies][:capacities][country][technology] = sum(capacity)
@@ -305,7 +391,7 @@ function process_investment_parameters(m,investment_countries)
 end
 
 ##Timeseries 
-function process_time_series!(m::Model,scenario::String,year,CY)
+function process_time_series!(m::Model,scenario::String,year,CY,simplified::Bool = false)
     countries = m.ext[:sets][:countries]
 
     m.ext[:timeseries] = Dict()
@@ -314,8 +400,11 @@ function process_time_series!(m::Model,scenario::String,year,CY)
 
     process_demand_time_series!(m,scenario,countries,year,CY)
     process_intermittent_time_series!(m,countries,CY)
-    process_hydro_inflow_time_series!(m,countries,CY)
+    if !(simplified)
+        process_hydro_inflow_time_series!(m,countries,CY)
+    end
 end
+
 
 function process_demand_time_series!(m::Model, scenario::String,countries,year,CY)
     scenario_dict = Dict("Distributed Energy" => "DistributedEnergy","Global Ambition" => "GlobalAmbition","National Trends" => "NationalTrends")
@@ -757,14 +846,158 @@ function build_base_investment_model!(m::Model,endtime,VOLL,disc_rate = 0.07)
     return m
 end
 
-function build_NTC_investment_model!(m:: Model,endtime,VOLL,transport_cost)
+function build_base_investment_model_simplified!(m::Model,endtime,VOLL,disc_rate = 0.07)
+    CO2_price = m.ext[:parameters][:CO2_price]
+    countries =  m.ext[:sets][:countries]
+    investment_countries =  m.ext[:sets][:investment_countries]
+    non_investment_countries = [country for country in setdiff(Set(countries),Set(investment_countries))]
+    timesteps = collect(1:endtime)
 
-    build_base_investment_model!(m,endtime,VOLL)
+    technologies = m.ext[:sets][:technologies]
+    dispatchable_technologies = m.ext[:sets][:dispatchable_technologies]
+    investment_technologies = m.ext[:sets][:investment_technologies]
+    non_investment_technologies = m.ext[:sets][:non_investment_technologies]
 
+
+    intermittent_technologies = m.ext[:sets][:intermittent_technologies]
+
+
+    capacities = m.ext[:parameters][:technologies][:capacities]
+    total_gen = m.ext[:parameters][:technologies][:total_gen]
+
+    efficiencies = m.ext[:parameters][:technologies][:efficiencies]
+    VOM = m.ext[:parameters][:technologies][:VOM]
+    availability = m.ext[:parameters][:technologies][:availabilities]
+    fuel_cost = m.ext[:parameters][:technologies][:fuel_cost]
+    emissions = m.ext[:parameters][:technologies][:emissions]
+
+    investment_cost = m.ext[:parameters][:investment_technologies][:cost]
+    investment_lifetime = m.ext[:parameters][:investment_technologies][:lifetime]
+
+    intermittent_timeseries = m.ext[:timeseries][:inter_gen]
+
+    ###################
+    #Variables
+    ###################
+
+    m.ext[:variables] = Dict()
+    production = m.ext[:variables][:production] = @variable(m,[c= countries, tech=technologies[c],time=timesteps],base_name = "production")
+    load_shedding =  m.ext[:variables][:load_shedding] = @variable(m,[c= countries,time=timesteps],base_name = "load_shedding")
+    curtailment = m.ext[:variables][:curtailment] = @variable(m,[c= countries,time=timesteps], base_name = "curtailment")
+
+    invested_cap = m.ext[:variables][:invested_cap] = @variable(m,[c= investment_countries, tech=investment_technologies[c]],base_name = "investment_capacity")
+    #Technology production used as discharge
+    #discharge = m.ext[:variables][:discharge] = @variable(m,[c= countries,tech = storage_technologies ,time=timesteps],base_name = "discharge")
+
+    #############
+    #Expressions
+    #############
+    m.ext[:expressions] = Dict()
+
+    total_production_timestep = m.ext[:expressions][:total_production_timestep] =
+    @expression(m, [c = countries, time = timesteps],
+    sum(production[c,tech,time] for tech in technologies[c])
+    )
+    renewable_production = m.ext[:expressions][:renewable_production] =
+    @expression(m, [c = countries, time = timesteps],
+    sum(production[c,ren_tech,time] for ren_tech in m.ext[:sets][:intermittent_technologies][c])
+    )
+
+    production_cost = m.ext[:expressions][:production_cost] =
+    @expression(m, [c = countries, time = timesteps],
+    sum(production[c,tech,time]*VOM[c][tech] for tech in technologies[c])
+    + sum(production[c,tech,time]*(1/efficiencies[c][tech])*fuel_cost[c][tech] for tech in dispatchable_technologies[c])
+    + sum(production[c,tech,time]*(1/efficiencies[c][tech])*emissions[c][tech]*CO2_price for tech in dispatchable_technologies[c])
+    )
+    VOM_cost = m.ext[:expressions][:VOM_cost] =
+    @expression(m, [c = countries, tech = technologies[c], time = timesteps],
+    production[c,tech,time]*VOM[c][tech]
+    )
+    fuel_cost = m.ext[:expressions][:fuel_cost] =
+    @expression(m, [c = countries, tech = dispatchable_technologies[c], time = timesteps],
+    production[c,tech,time]*(1/efficiencies[c][tech])*fuel_cost[c][tech]
+    )
+    C02_cost = m.ext[:expressions][:CO2_cost] =
+    @expression(m, [c = countries, tech = dispatchable_technologies[c], time = timesteps],
+    production[c,tech,time]*(1/efficiencies[c][tech])*emissions[c][tech]*CO2_price
+    )
+
+    load_shedding_cost = m.ext[:expressions][:load_shedding_cost] =
+    @expression(m, [c = countries, time = timesteps],
+    load_shedding[c,time]*VOLL
+    )
+    investment_cost = m.ext[:expressions][:investment_cost] =
+    @expression(m, [c = investment_countries, tech=investment_technologies[c]],
+    invested_cap[c,tech]*(investment_cost[c][tech] *disc_rate)/(1-(1+disc_rate)^(-investment_lifetime[c][tech])) * length(timesteps)/8760
+    )
+
+    #############
+    #Constraints
+    #############
+
+    m.ext[:constraints] = Dict()
+
+    #Production must be positive and respect the installed capacity for all technologies
+
+    #Nb1: countries in which no investment is possible, loop over all techs and respect given capacity 
+    m.ext[:constraints][:production_capacity] = @constraint(m,[c = non_investment_countries, tech = technologies[c],time = timesteps],
+    0<=production[c,tech,time] <=  capacities[c][tech]
+    )
+    #Nb2: countries in which investment is possible, loop over all techs for which investment is NOT possible and respect given capacity
+    m.ext[:constraints][:production_capacity_non_inv] = @constraint(m,[c = investment_countries, tech = non_investment_technologies[c],time = timesteps],
+    0<=production[c,tech,time] <=  capacities[c][tech]
+    )
+    #Nb3: countries in which investment is possible, loop over all techs for which investment IS possible and respect given + invested capacity
+    m.ext[:constraints][:production_capacity_invested] = @constraint(m,[c = investment_countries, tech = investment_technologies[c],time = timesteps],
+    production[c,tech,time]  <=  capacities[c][tech] + invested_cap[c,tech]
+    )
+
+    #Invested capacities must be positive
+    m.ext[:constraints][:installed_caps_pos] = @constraint(m,[c = investment_countries, tech = investment_technologies[c]],
+    0<=invested_cap[c,tech]
+    )
+    #Production must at all times be positive
+    m.ext[:constraints][:production_pos] = @constraint(m,[c = countries, tech = technologies[c],time = timesteps],
+    0<=production[c,tech,time]
+    )
+    #Load shedding must at all times be positive
+    m.ext[:constraints][:load_shedding_pos] = @constraint(m,[c = countries,time = timesteps],
+    0<=load_shedding[c,time]
+    )
+    #Curtailment must at all times be positive
+    m.ext[:constraints][:curtailment_pos] = @constraint(m,[c = countries,time = timesteps],
+    0<=curtailment[c,time]
+    )
+    #Curtailment must at all times be smaller than renewable production
+    m.ext[:constraints][:curtailment_max] = @constraint(m,[c = countries,time = timesteps],
+    curtailment[c,time]<= renewable_production[c,time]
+    )
+
+    #For the intermittent renewable sources, production is governed by the product of capacity factors and installed capacities
+    m.ext[:constraints][:intermittent_production] = @constraint(m,[c = non_investment_countries, tech = intermittent_technologies[c],time = timesteps],
+    production[c,tech,time] ==  capacities[c][tech]*intermittent_timeseries[c][tech][time]
+    )
+    #For the intermittent renewable sources, production is governed by the product of capacity factors and installed capacities + invested
+    m.ext[:constraints][:intermittent_production_invested] = @constraint(m,[c = investment_countries, tech = intermittent_technologies[c],time = timesteps],
+    production[c,tech,time] ==  (capacities[c][tech]+ invested_cap[c,tech])*intermittent_timeseries[c][tech][time]
+    )
+    return m
+end
+
+function build_NTC_investment_model!(m:: Model,endtime,VOLL,transport_cost,disc_rate = 0.07,simplified::Bool = false)
+    @show(simplified)
+    if simplified
+        build_base_investment_model_simplified!(m,endtime,VOLL,disc_rate)
+    else
+        build_base_investment_model!(m,endtime,VOLL,disc_rate)
+        storage_technologies = m.ext[:sets][:storage_technologies]
+        charge = m.ext[:variables][:charge]
+    end
     countries = m.ext[:sets][:countries]
     timesteps = collect(1:endtime)
     connections = m.ext[:sets][:connections]
-    storage_technologies = m.ext[:sets][:storage_technologies]
+
+    
     #And extract relevant parameters
 
     transfer_capacities = m.ext[:parameters][:connections]
@@ -774,8 +1007,7 @@ function build_NTC_investment_model!(m:: Model,endtime,VOLL,transport_cost)
     total_production_timestep = m.ext[:expressions][:total_production_timestep]
     curtailment = m.ext[:variables][:curtailment]
     load_shedding = m.ext[:variables][:load_shedding]
-    charge = m.ext[:variables][:charge]
-
+    
 
     el_import = m.ext[:variables][:import] = @variable(m,[c = countries, neighbor = connections[c] ,time = timesteps], base_name = "import")
     el_export = m.ext[:variables][:export]=  @variable(m,[c = countries, neighbor = connections[c] ,time = timesteps], base_name = "export")
@@ -791,9 +1023,15 @@ function build_NTC_investment_model!(m:: Model,endtime,VOLL,transport_cost)
         el_export[c,neighbor,time] == el_import[neighbor,c,time]
     )
 
-    m.ext[:constraints][:demand_met] = @constraint(m,[c = countries, time = timesteps],
-        total_production_timestep[c,time] + load_shedding[c,time] - curtailment[c,time] + sum(el_import[c,nb,time] for nb in connections[c])  == demand[c][time] + sum(el_export[c,nb,time] for nb in connections[c])  + sum(charge[c,tech,time] for tech in storage_technologies[c])
-    )
+    if simplified
+        m.ext[:constraints][:demand_met] = @constraint(m,[c = countries, time = timesteps],
+            total_production_timestep[c,time] + load_shedding[c,time] - curtailment[c,time] + sum(el_import[c,nb,time] for nb in connections[c])  == demand[c][time] + sum(el_export[c,nb,time] for nb in connections[c])
+        )
+    else
+        m.ext[:constraints][:demand_met] = @constraint(m,[c = countries, time = timesteps],
+            total_production_timestep[c,time] + load_shedding[c,time] - curtailment[c,time] + sum(el_import[c,nb,time] for nb in connections[c])  == demand[c][time] + sum(el_export[c,nb,time] for nb in connections[c])  + sum(charge[c,tech,time] for tech in storage_technologies[c])
+        )
+    end
     VOM_cost = m.ext[:expressions][:VOM_cost]
     fuel_cost = m.ext[:expressions][:fuel_cost]
     load_shedding_cost = m.ext[:expressions][:load_shedding_cost]
@@ -831,12 +1069,14 @@ function build_isolated_investment_model!(m::Model,endtime,VOLL)
     m.ext[:objective] = @objective(m,Min,sum(investment_cost) + sum(VOM_cost) + sum(CO2_cost) + sum(fuel_cost) + sum(load_shedding_cost))
 end
 
-function remove_capacity_country!(m::Model,country::String)
+function remove_capacity_country!(m::Model,country::String,simplified::Bool=false)
     for technology in m.ext[:sets][:technologies][country]
         #print(technology)
         m.ext[:parameters][:technologies][:capacities][country][technology] = 0
     end
-    for technology in m.ext[:sets][:flat_run_technologies][country]
-        m.ext[:parameters][:technologies][:total_gen][country][technology] = 0
+    if !(simplified)
+        for technology in m.ext[:sets][:flat_run_technologies][country]
+            m.ext[:parameters][:technologies][:total_gen][country][technology] = 0
+        end
     end
 end

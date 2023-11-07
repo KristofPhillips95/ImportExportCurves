@@ -1,27 +1,24 @@
 include("ImportExport/model_builder.jl")
 using Gurobi
-using Plots
+
 
 scenario = "National Trends"
-endtime = 24 * 10 
+endtime = 24 * 100
 year = 2025
 CY = 1984
 CY_ts = 2012
 VOLL = 10000
 
-results = DataFrame()
-
-isolated = false
-country = "BE00"
-
 m = Model(optimizer_with_attributes(Gurobi.Optimizer))
-define_sets!(m,scenario,year,CY,[],[country])
+define_sets_simplified!(m,scenario,year,CY,[],[country])
+process_parameters_simplified!(m,scenario,year,CY,[country])
+process_time_series!(m,scenario,year,CY_ts, true)
+remove_capacity_country!(m,country,true)
 
-process_parameters!(m,scenario,year,CY,[country])
-process_time_series!(m,scenario,year,CY_ts)
-remove_capacity_country!(m,country)
-build_NTC_investment_model!(m,endtime,VOLL,0.1,0.07)
+
+build_NTC_investment_model!(m,endtime,VOLL,0.1,0.07,true)
 optimize!(m)
+
 
 
 #Check if production + net_import equals demand 
@@ -34,7 +31,6 @@ load_shedding = [JuMP.value.(m.ext[:variables][:load_shedding][country,t] ) for 
 
 tech = "OCGT"
 productions = Dict(tech => [JuMP.value.(m.ext[:variables][:production][country,tech,t]) for t in 1:endtime] for tech in m.ext[:sets][:technologies][country] )
-charges = Dict(tech => [JuMP.value.(m.ext[:variables][:charge][country,tech,t]) for t in 1:endtime] for tech in m.ext[:sets][:storage_technologies][country] )
 # Extract x values (time periods)
 x = 1:length(productions["OCGT"])
 
@@ -51,18 +47,16 @@ for tech  in keys(productions)
     #plot!(x, y_stacked, label = tech)
     plot!(x,productions[tech], label = tech)
 end
-charges_stacked = zeros(endtime)
-for tech  in keys(charges)
-    # Add the production values to the stacked values
-    charges_stacked += charges[tech]
 
-    #plot!(x, y_stacked, label = tech)
-    plot!(x,charges[tech], label = string("charge" , tech))
-end
-
-scatter!(x,demand + curtailment + charges_stacked - load_shedding - y_stacked,label = "Sum of it all")
+scatter!(x,demand + curtailment - load_shedding - y_stacked,label = "Sum of it all")
 # Customize the plot
 plot!(xlabel = "Time", ylabel = "Production", legend = :topright)
 
 # Display the plot
 display(plt)
+
+ls_tot = sum(JuMP.value.(m.ext[:variables][:load_shedding]))
+
+dem_tot = sum(sum([m.ext[:timeseries][:demand][country][t] for t in 1:endtime] for country in m.ext[:sets][:countries]))
+
+ls_tot/dem_tot
