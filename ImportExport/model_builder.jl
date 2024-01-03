@@ -163,6 +163,9 @@ function process_parameters!(m::Model,scenario::String,year::Int,CY::Int,investm
     connections = m.ext[:sets][:connections]
 
     m.ext[:parameters] = Dict()
+    m.ext[:parameters][:CY] = CY
+    m.ext[:parameters][:year] = year
+
 
     m.ext[:parameters][:technologies] = Dict()
     m.ext[:parameters][:connections] = Dict()
@@ -238,6 +241,7 @@ function process_co2_price(m,year::Int64)
     m.ext[:parameters][:CO2_price] = reading_co2[1,string(year)]/1000
 
 end
+
 function process_power_generation_parameters!(m::Model,scenario::String,year::Int,CY::Int,countries,technologies)
     path = joinpath("InputData","gen_cap.csv")
     reading = CSV.read(path,DataFrame)
@@ -617,7 +621,7 @@ end
 
 function build_NTC_dispatch_model!(m:: Model,endtime,VOLL,transport_cost)
 
-    build_base_model!(m,endtime,VOLL)
+    build_base_dispatch_model!(m,endtime,VOLL)
 
     countries = m.ext[:sets][:countries]
     timesteps = collect(1:endtime)
@@ -985,7 +989,7 @@ function build_base_investment_model_simplified!(m::Model,endtime,VOLL,disc_rate
 end
 
 function build_NTC_investment_model!(m:: Model,endtime,VOLL,transport_cost,disc_rate = 0.07,simplified::Bool = false)
-    @show(simplified)
+    #@show(simplified)
     if simplified
         build_base_investment_model_simplified!(m,endtime,VOLL,disc_rate)
     else
@@ -1079,4 +1083,40 @@ function remove_capacity_country!(m::Model,country::String,simplified::Bool=fals
             m.ext[:parameters][:technologies][:total_gen][country][technology] = 0
         end
     end
+end
+
+function set_demand_country(m::Model,country::String,demand::Int)
+    m.ext[:timeseries][:demand][country] .= demand
+end
+
+function fix_soc_decisions(m::Model,soc_given,production_given,timesteps,country)
+    countries = filter!(e->e !=country,m.ext[:sets][:countries] )
+    soc_technologies = m.ext[:sets][:soc_technologies]
+    soc = m.ext[:variables][:soc]
+    production = m.ext[:variables][:production]
+    m.ext[:constraints][:soc_fixed] = @constraint(m,[c = countries, tech = soc_technologies[c] ,time = timesteps],
+        soc[c,tech,time] == soc_given[c,tech,time]
+    )
+    m.ext[:constraints][:soc_production_fixed] = @constraint(m,[c = countries, tech = soc_technologies[c] ,time = timesteps],
+        production[c,tech,time] == production_given[c,tech,time]
+    )
+end
+
+function fix_soc_decisions_from_dict(m::Model,soc_given,production_given,timesteps,country)
+    countries = filter!(e->e !=country,m.ext[:sets][:countries] )
+    soc_technologies = m.ext[:sets][:soc_technologies]
+    storage_technologies = m.ext[:sets][:storage_technologies]
+
+    soc = m.ext[:variables][:soc]
+    production = m.ext[:variables][:production]
+    charge = m.ext[:variables][:charge]
+    m.ext[:constraints][:soc_fixed] = @constraint(m,[c = countries, tech = soc_technologies[c] ,time = timesteps],
+        soc[c,tech,time] == soc_given[(c,tech,time)]
+    )
+    m.ext[:constraints][:soc_production_fixed] = @constraint(m,[c = countries, tech = soc_technologies[c] ,time = timesteps],
+        production[c,tech,time] == production_given[(c,tech,time)]
+    )
+    m.ext[:constraints][:charge_zero] = @constraint(m,[tech = storage_technologies[country] ,time = timesteps],
+        charge[country,tech,time] == 0
+    )
 end
