@@ -3,7 +3,7 @@ import JSON3
 
 #Define global parameters
 scenario = "National Trends"
-endtime = 5
+endtime = 24*2
 year = 2025
 CY_cap = 1984
 CY_ts = 2012
@@ -15,7 +15,7 @@ curve_dict = Dict()
 import_dict = Dict()
 export_dict = Dict()
 
-import_levels = -1000:100:1000
+import_levels = -2000:100:2000
 
 #Optimize dispatch model with given capacities from input data
 m2,soc,production =  optimize_and_retain_intertemporal_decisions_no_DSR(scenario::String,year::Int,CY_cap::Int,CY_ts,endtime,VOLL,ty)
