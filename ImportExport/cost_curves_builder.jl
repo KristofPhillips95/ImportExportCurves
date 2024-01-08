@@ -1,7 +1,7 @@
 include("model_builder.jl")
 import Gurobi
 
-function optimize_and_retain_intertemporal_decisions_no_DSR(scenario::String,year::Int,CY_cap::Int,CY_ts,endtime,VOLL,ty)
+function optimize_and_retain_intertemporal_decisions_no_DSR(; scenario::String,year::Int,CY_cap::Int,CY_ts::Int,endtime::Int,VOLL::Int)
     m = Model(optimizer_with_attributes(Gurobi.Optimizer))
     define_sets!(m,scenario,year,CY_cap,[])
     process_parameters!(m,scenario,year,CY_cap)
@@ -24,7 +24,7 @@ function write_sparse_axis_to_dict(sparse_axis)
     return dict
 end
 
-function build_model_for_import_curve(m,import_level,country,endtime,soc,production,transp_cost)
+function build_model_for_import_curve(m,import_level,country,endtime,soc,production,transp_cost,VOLL)
     # m = Model(optimizer_with_attributes(Gurobi.Optimizer))
     # define_sets!(m,scenario,year,CY)
     # process_parameters!(m,scenario,year,CY)
@@ -50,7 +50,7 @@ function build_model_for_import_curve_from_dict(import_level,country,endtime,soc
     return m
 end
 
-function change_import_level!(m,endtime,import_level)
+function change_import_level!(m,endtime,import_level,country)
     for t in 1:endtime
         set_normalized_rhs(m.ext[:constraints][:demand_met][country,t],import_level)
     end
