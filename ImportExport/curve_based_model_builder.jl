@@ -3,7 +3,7 @@ include("model_builder.jl")
 function price_curves_to_availability_curves(curves)
     # Firs, extract all unique prices: 
     prices_sorted = sort(unique(Matrix(curves)))
-    trade_levels = parse.(Int,names(curves))
+    trade_levels = parse.(Float64,names(curves))
     trade_level_step = trade_levels[1] - trade_levels[2]
 
     #Then, for each price, find the availability 
